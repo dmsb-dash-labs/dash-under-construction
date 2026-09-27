@@ -115,6 +115,81 @@
     background:radial-gradient(circle 420px at var(--mx,50%) var(--my,50%), rgba(255,255,255,0.10), transparent 70%);
   }
 
+  .scanline{
+    position:fixed;
+    left:0; right:0;
+    top:-4%;
+    height:14%;
+    z-index:2;
+    pointer-events:none;
+    mix-blend-mode:overlay;
+    background:linear-gradient(180deg, transparent, rgba(180,200,255,0.10) 45%, transparent 100%);
+    animation:scanSweep 7s linear infinite;
+  }
+  @keyframes scanSweep{
+    0%{ transform:translateY(-20%); }
+    100%{ transform:translateY(820%); }
+  }
+
+  .orbit-ring{
+    position:absolute;
+    top:50%; left:50%;
+    width:640px; height:640px;
+    margin:-320px 0 0 -320px;
+    border-radius:50%;
+    border:1px dashed rgba(148,163,214,0.16);
+    z-index:-2;
+    pointer-events:none;
+    animation:ringSpin 46s linear infinite;
+  }
+  .orbit-ring::before, .orbit-ring::after{
+    content:'';
+    position:absolute;
+    width:6px;height:6px;
+    border-radius:50%;
+    top:50%; left:50%;
+  }
+  .orbit-ring::before{
+    background:var(--accent);
+    box-shadow:0 0 10px 2px rgba(94,234,212,0.8);
+    transform:translate(314px,-3px);
+  }
+  .orbit-ring::after{
+    background:var(--accent3);
+    box-shadow:0 0 10px 2px rgba(244,114,182,0.75);
+    transform:translate(-320px,-3px) rotate(160deg) translate(0,0);
+  }
+  .orbit-ring.inner{
+    width:440px;height:440px;
+    margin:-220px 0 0 -220px;
+    animation:ringSpinReverse 34s linear infinite;
+    border-color:rgba(148,163,214,0.12);
+  }
+  .orbit-ring.inner::before{
+    transform:translate(214px,-3px);
+  }
+  .orbit-ring.inner::after{
+    background:var(--accent2);
+    box-shadow:0 0 10px 2px rgba(129,140,248,0.75);
+    transform:translate(-220px,-3px);
+  }
+
+  @keyframes ringSpin{
+    to{ transform:rotate(360deg); }
+  }
+  @keyframes ringSpinReverse{
+    to{ transform:rotate(-360deg); }
+  }
+
+  @media (max-width:640px){
+    .orbit-ring{ width:420px;height:420px;margin:-210px 0 0 -210px; }
+    .orbit-ring::before{ transform:translate(204px,-3px); }
+    .orbit-ring::after{ transform:translate(-210px,-3px); }
+    .orbit-ring.inner{ width:300px;height:300px;margin:-150px 0 0 -150px; }
+    .orbit-ring.inner::before{ transform:translate(144px,-3px); }
+    .orbit-ring.inner::after{ transform:translate(-150px,-3px); }
+  }
+
   .content{
     position:relative;
     z-index:3;
@@ -333,6 +408,18 @@
     0%,100%{opacity:1;}
     50%{opacity:0;}
   }
+  h1.glitch{
+    animation:fadeUp 1.1s cubic-bezier(.16,1,.3,1) 0.35s forwards, wordmarkShine 7s ease-in-out 2s infinite, glitchShift 0.22s steps(2, end) 1;
+    text-shadow:2px 0 rgba(94,234,212,0.5), -2px 0 rgba(244,114,182,0.5);
+  }
+  @keyframes glitchShift{
+    0%{ transform:translate(0,0); }
+    20%{ transform:translate(-2px,1px); }
+    40%{ transform:translate(2px,-1px); }
+    60%{ transform:translate(-1px,0); }
+    80%{ transform:translate(1px,1px); }
+    100%{ transform:translate(0,0); }
+  }
 
   @media (prefers-reduced-motion: reduce){
     *{animation-duration:0.01ms !important; animation-iteration-count:1 !important;}
@@ -346,9 +433,12 @@
 <div class="vignette"></div>
 <div class="grain"></div>
 <div class="spotlight"></div>
+<div class="scanline"></div>
 
 <div class="content">
   <div class="frame" id="frame">
+    <div class="orbit-ring"></div>
+    <div class="orbit-ring inner"></div>
     <div class="rings"><span></span><span></span><span></span></div>
     <span class="corner tl"></span>
     <span class="corner tr"></span>
@@ -626,10 +716,20 @@
           if(revealed > finalText.length){
             clearInterval(iv);
             wordmark.innerHTML = finalHTML;
+            if(!reduceMotion) scheduleGlitch();
           }
         }, 45);
       }, 350);
     }
+  }
+
+  function scheduleGlitch(){
+    var delay = 6000 + Math.random()*7000;
+    setTimeout(function(){
+      wordmark.classList.add('glitch');
+      setTimeout(function(){ wordmark.classList.remove('glitch'); }, 240);
+      scheduleGlitch();
+    }, delay);
   }
 
   // typewriter status ticker
