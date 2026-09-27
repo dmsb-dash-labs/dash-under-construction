@@ -36,6 +36,52 @@
     width:100%;
     height:100%;
     display:block;
+    z-index:0;
+  }
+
+  .aurora{
+    position:fixed;
+    inset:-10%;
+    z-index:0;
+    pointer-events:none;
+    filter:blur(60px);
+    opacity:0.55;
+  }
+  .aurora span{
+    position:absolute;
+    border-radius:50%;
+    mix-blend-mode:screen;
+  }
+  .aurora span:nth-child(1){
+    width:52vw;height:52vw;
+    top:-14%;left:-12%;
+    background:radial-gradient(circle, rgba(94,234,212,0.35), transparent 70%);
+    animation:drift1 26s ease-in-out infinite;
+  }
+  .aurora span:nth-child(2){
+    width:46vw;height:46vw;
+    bottom:-16%;right:-10%;
+    background:radial-gradient(circle, rgba(129,140,248,0.38), transparent 70%);
+    animation:drift2 32s ease-in-out infinite;
+  }
+  .aurora span:nth-child(3){
+    width:38vw;height:38vw;
+    top:38%;left:58%;
+    background:radial-gradient(circle, rgba(244,114,182,0.28), transparent 70%);
+    animation:drift3 22s ease-in-out infinite;
+  }
+
+  @keyframes drift1{
+    0%,100%{transform:translate(0,0) scale(1);}
+    50%{transform:translate(6vw,8vh) scale(1.15);}
+  }
+  @keyframes drift2{
+    0%,100%{transform:translate(0,0) scale(1);}
+    50%{transform:translate(-7vw,-6vh) scale(1.1);}
+  }
+  @keyframes drift3{
+    0%,100%{transform:translate(0,0) scale(1);}
+    50%{transform:translate(-5vw,7vh) scale(0.9);}
   }
 
   .vignette{
@@ -192,6 +238,7 @@
 </head>
 <body>
 
+<div class="aurora"><span></span><span></span><span></span></div>
 <canvas id="net"></canvas>
 <div class="vignette"></div>
 <div class="grain"></div>
@@ -202,7 +249,7 @@
   <div class="subtitle">DMSB AI Strategic Hub</div>
   <div class="divider"></div>
   <div class="coming-soon">Coming Soon</div>
-  <p class="flavor">Building the frontier of applied AI research — where business intelligence meets machine intelligence.</p>
+  <p class="flavor">Exploring what's next in applied artificial intelligence.</p>
 </div>
 
 <div class="footer">© 2026 DASH Lab — Northeastern University</div>
@@ -213,7 +260,10 @@
   var ctx = canvas.getContext('2d');
   var w, h, dpr;
   var nodes = [];
-  var mouse = { x: null, y: null };
+  var stars = [];
+  var pulses = [];
+  var mouse = { x: -9999, y: -9999, active:false };
+  var t = 0;
 
   function resize(){
     dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -225,64 +275,133 @@
     canvas.style.height = h + 'px';
     ctx.setTransform(dpr,0,0,dpr,0,0);
     initNodes();
+    initStars();
   }
 
   function initNodes(){
     var area = w * h;
-    var count = Math.max(28, Math.min(90, Math.floor(area / 22000)));
+    var count = Math.max(34, Math.min(110, Math.floor(area / 18000)));
     nodes = [];
     for(var i=0;i<count;i++){
       nodes.push({
         x: Math.random()*w,
         y: Math.random()*h,
-        vx: (Math.random()-0.5)*0.18,
-        vy: (Math.random()-0.5)*0.18,
-        r: Math.random()*1.6 + 0.6
+        vx: (Math.random()-0.5)*0.22,
+        vy: (Math.random()-0.5)*0.22,
+        r: Math.random()*1.7 + 0.6,
+        tw: Math.random()*Math.PI*2
       });
     }
   }
 
-  var linkDist = 150;
+  function initStars(){
+    var area = w * h;
+    var count = Math.max(60, Math.min(220, Math.floor(area / 9000)));
+    stars = [];
+    for(var i=0;i<count;i++){
+      stars.push({
+        x: Math.random()*w,
+        y: Math.random()*h,
+        r: Math.random()*1.1 + 0.2,
+        phase: Math.random()*Math.PI*2,
+        speed: 0.6 + Math.random()*1.2
+      });
+    }
+  }
+
+  var linkDist = 160;
   var colors = ['94,234,212','129,140,248','244,114,182'];
 
+  function maybeSpawnPulse(a, b, dist){
+    if(pulses.length > 14) return;
+    if(Math.random() > 0.0025) return;
+    pulses.push({ a:a, b:b, p:0, speed: 0.006 + Math.random()*0.006 });
+  }
+
   function step(){
+    t += 1;
     ctx.clearRect(0,0,w,h);
 
+    // starfield twinkle
+    for(var i=0;i<stars.length;i++){
+      var s = stars[i];
+      var tw = 0.35 + 0.65 * (0.5 + 0.5*Math.sin(t*0.01*s.speed + s.phase));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(220,228,245,' + (tw*0.5) + ')';
+      ctx.fill();
+    }
+
+    // node motion + gentle mouse repulsion
     for(var i=0;i<nodes.length;i++){
       var n = nodes[i];
       n.x += n.vx;
       n.y += n.vy;
+
+      if(mouse.active){
+        var dx = n.x - mouse.x, dy = n.y - mouse.y;
+        var d2 = dx*dx + dy*dy;
+        var rad = 130;
+        if(d2 < rad*rad){
+          var d = Math.sqrt(d2) || 0.01;
+          var force = (1 - d/rad) * 0.6;
+          n.x += (dx/d) * force;
+          n.y += (dy/d) * force;
+        }
+      }
+
       if(n.x < -20) n.x = w+20;
       if(n.x > w+20) n.x = -20;
       if(n.y < -20) n.y = h+20;
       if(n.y > h+20) n.y = -20;
     }
 
+    // links
     for(var i=0;i<nodes.length;i++){
       for(var j=i+1;j<nodes.length;j++){
         var a = nodes[i], b = nodes[j];
         var dx = a.x-b.x, dy = a.y-b.y;
         var dist = Math.sqrt(dx*dx+dy*dy);
         if(dist < linkDist){
-          var op = (1 - dist/linkDist) * 0.16;
+          var op = (1 - dist/linkDist) * 0.18;
           ctx.strokeStyle = 'rgba(129,140,248,' + op + ')';
           ctx.lineWidth = 0.6;
           ctx.beginPath();
           ctx.moveTo(a.x,a.y);
           ctx.lineTo(b.x,b.y);
           ctx.stroke();
+          maybeSpawnPulse(a, b, dist);
         }
       }
     }
 
+    // traveling data pulses along active links
+    for(var i=pulses.length-1;i>=0;i--){
+      var pu = pulses[i];
+      pu.p += pu.speed;
+      if(pu.p >= 1){ pulses.splice(i,1); continue; }
+      var px = pu.a.x + (pu.b.x - pu.a.x) * pu.p;
+      var py = pu.a.y + (pu.b.y - pu.a.y) * pu.p;
+      var fade = Math.sin(pu.p * Math.PI);
+      ctx.beginPath();
+      ctx.arc(px, py, 1.8, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.85*fade) + ')';
+      ctx.shadowColor = 'rgba(190,210,255,0.9)';
+      ctx.shadowBlur = 8;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // nodes with individual twinkle
     for(var i=0;i<nodes.length;i++){
       var n = nodes[i];
       var c = colors[i % colors.length];
+      var glow = 0.45 + 0.4 * Math.sin(t*0.02 + n.tw);
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r, 0, Math.PI*2);
-      ctx.fillStyle = 'rgba(' + c + ',0.55)';
+      ctx.fillStyle = 'rgba(' + c + ',' + glow + ')';
       ctx.shadowColor = 'rgba(' + c + ',0.9)';
-      ctx.shadowBlur = 6;
+      ctx.shadowBlur = 7;
       ctx.fill();
       ctx.shadowBlur = 0;
     }
@@ -291,6 +410,20 @@
   }
 
   window.addEventListener('resize', resize);
+  window.addEventListener('mousemove', function(e){
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+    mouse.active = true;
+  });
+  window.addEventListener('mouseleave', function(){ mouse.active = false; });
+  window.addEventListener('touchmove', function(e){
+    if(e.touches && e.touches[0]){
+      mouse.x = e.touches[0].clientX;
+      mouse.y = e.touches[0].clientY;
+      mouse.active = true;
+    }
+  }, {passive:true});
+
   resize();
   requestAnimationFrame(step);
 })();
