@@ -271,6 +271,22 @@
     animation:fadeUp 1s cubic-bezier(.16,1,.3,1) 1.2s forwards;
   }
 
+  .ticker{
+    margin-top:34px;
+    font-family:"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12px;
+    letter-spacing:0.04em;
+    color:var(--accent);
+    opacity:0;
+    animation:fadeIn 1s ease 1.6s forwards;
+  }
+  .ticker .cursor{
+    display:inline-block;
+    margin-left:2px;
+    animation:blink 1s step-end infinite;
+    color:var(--accent);
+  }
+
   .footer{
     position:fixed;
     bottom:28px;
@@ -313,6 +329,10 @@
   @keyframes cornerIn{
     to{opacity:1;}
   }
+  @keyframes blink{
+    0%,100%{opacity:1;}
+    50%{opacity:0;}
+  }
 
   @media (prefers-reduced-motion: reduce){
     *{animation-duration:0.01ms !important; animation-iteration-count:1 !important;}
@@ -336,11 +356,12 @@
     <span class="corner br"></span>
 
     <div class="eyebrow"><span class="dot"></span>Northeastern University · D'Amore-McKim School of Business</div>
-    <h1>DASH<span class="accent-dot">.</span>Lab</h1>
+    <h1 id="wordmark">DASH<span class="accent-dot">.</span>Lab</h1>
     <div class="subtitle">DMSB AI Strategic Hub</div>
     <div class="divider"></div>
     <div class="coming-soon">Coming Soon</div>
     <p class="flavor">Exploring what's next in applied artificial intelligence.</p>
+    <p class="ticker"><span id="ticker-text"></span><span class="cursor">_</span></p>
   </div>
 </div>
 
@@ -354,6 +375,7 @@
   var nodes = [];
   var stars = [];
   var pulses = [];
+  var bursts = [];
   var mouse = { x: -9999, y: -9999, active:false };
   var t = 0;
 
@@ -498,10 +520,53 @@
       ctx.shadowBlur = 0;
     }
 
+    // click-spawned data bursts: expanding ring + radiating sparks
+    for(var i=bursts.length-1;i>=0;i--){
+      var bu = bursts[i];
+      bu.p += 0.018;
+      if(bu.p >= 1){ bursts.splice(i,1); continue; }
+      var ringR = bu.p * 140;
+      var ringFade = 1 - bu.p;
+      ctx.beginPath();
+      ctx.arc(bu.x, bu.y, ringR, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(' + bu.color + ',' + (ringFade*0.6) + ')';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+
+      for(var k=0;k<bu.sparks.length;k++){
+        var sp = bu.sparks[k];
+        var sx = bu.x + Math.cos(sp.a) * sp.d * bu.p;
+        var sy = bu.y + Math.sin(sp.a) * sp.d * bu.p;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 1.4, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(' + bu.color + ',' + ringFade + ')';
+        ctx.shadowColor = 'rgba(' + bu.color + ',0.9)';
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
     requestAnimationFrame(step);
   }
 
+  function spawnBurst(x, y){
+    var color = colors[Math.floor(Math.random()*colors.length)];
+    var sparks = [];
+    var count = 10;
+    for(var i=0;i<count;i++){
+      sparks.push({ a: (Math.PI*2/count)*i + Math.random()*0.3, d: 60 + Math.random()*70 });
+    }
+    bursts.push({ x:x, y:y, p:0, color:color, sparks:sparks });
+    if(bursts.length > 6) bursts.shift();
+  }
+
+  window.addEventListener('click', function(e){
+    spawnBurst(e.clientX, e.clientY);
+  });
+
   var frame = document.getElementById('frame');
+  var auroraEl = document.querySelector('.aurora');
   var root = document.documentElement;
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -514,15 +579,17 @@
     root.style.setProperty('--mx', (e.clientX/w*100) + '%');
     root.style.setProperty('--my', (e.clientY/h*100) + '%');
 
-    if(!reduceMotion && frame){
+    if(!reduceMotion){
       var nx = (e.clientX / w - 0.5) * 2;
       var ny = (e.clientY / h - 0.5) * 2;
-      frame.style.transform = 'rotateX(' + (-ny*5) + 'deg) rotateY(' + (nx*5) + 'deg)';
+      if(frame) frame.style.transform = 'rotateX(' + (-ny*5) + 'deg) rotateY(' + (nx*5) + 'deg)';
+      if(auroraEl) auroraEl.style.transform = 'translate(' + (-nx*16) + 'px,' + (-ny*16) + 'px)';
     }
   });
   window.addEventListener('mouseleave', function(){
     mouse.active = false;
     if(frame) frame.style.transform = 'rotateX(0deg) rotateY(0deg)';
+    if(auroraEl) auroraEl.style.transform = 'translate(0,0)';
   });
   window.addEventListener('touchmove', function(e){
     if(e.touches && e.touches[0]){
@@ -534,6 +601,71 @@
 
   resize();
   requestAnimationFrame(step);
+
+  // decrypt-style reveal for the wordmark
+  var wordmark = document.getElementById('wordmark');
+  if(wordmark){
+    var finalHTML = wordmark.innerHTML;
+    var finalText = wordmark.textContent;
+    var scrambleChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#$%&01';
+    if(reduceMotion){
+      wordmark.innerHTML = finalHTML;
+    } else {
+      setTimeout(function(){
+        var revealed = 0;
+        var frameCount = 0;
+        var iv = setInterval(function(){
+          var out = '';
+          for(var i=0;i<finalText.length;i++){
+            if(i < revealed || finalText[i] === '.'){ out += finalText[i]; }
+            else { out += scrambleChars[Math.floor(Math.random()*scrambleChars.length)]; }
+          }
+          wordmark.textContent = out;
+          frameCount++;
+          if(frameCount % 2 === 0) revealed++;
+          if(revealed > finalText.length){
+            clearInterval(iv);
+            wordmark.innerHTML = finalHTML;
+          }
+        }, 45);
+      }, 350);
+    }
+  }
+
+  // typewriter status ticker
+  var tickerEl = document.getElementById('ticker-text');
+  if(tickerEl){
+    var phrases = [
+      'calibrating language models...',
+      'mapping decision systems...',
+      'indexing applied research...',
+      'training the next experiment...'
+    ];
+    var phraseIdx = 0;
+    function typeLoop(){
+      var phrase = phrases[phraseIdx % phrases.length];
+      var charIdx = 0;
+      var typing = setInterval(function(){
+        tickerEl.textContent = phrase.slice(0, charIdx);
+        charIdx++;
+        if(charIdx > phrase.length){
+          clearInterval(typing);
+          setTimeout(function(){
+            var erasing = setInterval(function(){
+              charIdx--;
+              tickerEl.textContent = phrase.slice(0, charIdx);
+              if(charIdx <= 0){
+                clearInterval(erasing);
+                phraseIdx++;
+                setTimeout(typeLoop, 400);
+              }
+            }, 28);
+          }, 1600);
+        }
+      }, 48);
+    }
+    setTimeout(typeLoop, 2200);
+  }
 })();
 </script>
 
